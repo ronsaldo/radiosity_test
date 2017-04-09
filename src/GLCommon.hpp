@@ -1,0 +1,6 @@
+#ifndef RADIOSITY_TEST_GL_COMMON_HPP
+#define RADIOSITY_TEST_GL_COMMON_HPP
+
+#include <GL/glew.h>
+
+#endif //RADIOSITY_TEST_GL_COMMON_HPP

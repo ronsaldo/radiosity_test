@@ -18,7 +18,7 @@ endif()
 
 # Output paths.
 set(CMAKE_DEBUG_POSTFIX "_d")
- 
+
 set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/dist")
 set(RadiosityTest_DATA_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/dist/data")
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/;${CMAKE_MODULE_PATH}")
@@ -46,6 +46,11 @@ include(${CMAKE_ROOT}/Modules/CheckLibraryExists.cmake)
 # Set output dir.
 set(EXECUTABLE_OUTPUT_PATH "${RadiosityTest_BINARY_DIR}/dist")
 set(LIBRARY_OUTPUT_PATH "${RadiosityTest_BINARY_DIR}/dist")
+
+find_package(OpenGL REQUIRED)
+
+find_library(GLEW_LIBRARY NAMES GLEW)
+set(RadiosityTest_DEP_LIBS ${GLEW_LIBRARY} ${OPENGL_gl_LIBRARY} ${RadiosityTest_DEP_LIBS})
 
 # Use pkg-config.
 find_package(PkgConfig)
@@ -80,13 +85,13 @@ else()
     else()
 	set(SDL2_MAIN_LIBRARY "")
     endif()
-    
+
     set(RadiosityTest_DEP_LIBS ${RadiosityTest_DEP_LIBS} ${SDL2_MAIN_LIBRARY} ${SDL2_LIBRARY})
     if(MINGW)
         set(RadiosityTest_DEP_LIBS mingw32 ${RadiosityTest_DEP_LIBS})
 	add_definitions(-D__NO_INLINE__)
     endif()
-    
+
     include_directories("${SDL2_INCLUDE_DIR}")
 endif()
 
@@ -99,4 +104,3 @@ include_directories(
 
 # Build the program
 add_subdirectory(src)
-
