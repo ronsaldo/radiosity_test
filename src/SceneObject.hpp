@@ -38,9 +38,19 @@ public:
         return position;
     }
 
+    void setPosition(const glm::vec3 &newPosition)
+    {
+        position = newPosition;
+    }
+
     const glm::mat3 &getOrientation() const
     {
         return orientation;
+    }
+
+    void setOrientation(const glm::mat3 &newOrientation)
+    {
+        orientation = newOrientation;
     }
 
     const MeshPtr &getRenderable() const
@@ -53,10 +63,7 @@ public:
         renderable = newRenderable;
     }
 
-    glm::mat4 getCurrentTransform()
-    {
-        return glm::mat4();
-    }
+    glm::mat4 getCurrentTransform() const;
 
 private:
     glm::vec3 position;

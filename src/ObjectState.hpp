@@ -2,6 +2,7 @@
 #define RADIOSITY_TEST_OBJECT_STATE_HPP
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include "GpuAllocator.hpp"
 
 namespace RadiosityTest
@@ -22,18 +23,20 @@ struct ObjectState
     {
         transformation = newTransformation;
         inverseTransformation = glm::inverse(transformation);
-
-        normalTransformation = glm::transpose(glm::mat3(inverseTransformation));
-        inverseNormalTransformation = glm::transpose(glm::mat3(transformation));
+        buildNormalMatrices();
     }
 
-    void setOrthoTransformation(const glm::mat4 &newTransformation)
+    void setAffineTransformation(const glm::mat4 &newTransformation)
     {
         transformation = newTransformation;
-        inverseTransformation = glm::transpose(transformation);
+        inverseTransformation = glm::affineInverse(transformation);
+        buildNormalMatrices();
+    }
 
-        normalTransformation = glm::mat3(transformation);
-        inverseNormalTransformation = glm::mat3(inverseTransformation);
+    void buildNormalMatrices()
+    {
+        normalTransformation = glm::transpose(glm::mat3(inverseTransformation));
+        inverseNormalTransformation = glm::transpose(glm::mat3(transformation));
     }
 };
 

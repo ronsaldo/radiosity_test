@@ -21,8 +21,7 @@ static void render();
 static RendererPtr renderer;
 static ScenePtr scene;
 static CameraPtr camera;
-glm::vec3 cameraVelocity;
-
+static glm::vec3 cameraVelocity;
 
 static void onKeyDown(const SDL_KeyboardEvent &event)
 {
@@ -31,11 +30,59 @@ static void onKeyDown(const SDL_KeyboardEvent &event)
     case SDLK_ESCAPE:
         quitting = true;
         break;
+    case SDLK_a:
+        cameraVelocity.x = -1.0f;
+        break;
+    case SDLK_d:
+        cameraVelocity.x = 1.0f;
+        break;
+    case SDLK_w:
+        cameraVelocity.z = -1.0f;
+        break;
+    case SDLK_s:
+        cameraVelocity.z = 1.0f;
+        break;
+    case SDLK_SPACE:
+        cameraVelocity.y = 1.0f;
+        break;
+    case SDLK_LCTRL:
+        cameraVelocity.y = -1.0f;
+        break;
     }
 }
 
 static void onKeyUp(const SDL_KeyboardEvent &event)
 {
+    switch(event.keysym.sym)
+    {
+    case SDLK_ESCAPE:
+        quitting = true;
+        break;
+    case SDLK_a:
+        if(cameraVelocity.x < 0)
+            cameraVelocity.x = 0;
+        break;
+    case SDLK_d:
+        if(cameraVelocity.x > 0)
+            cameraVelocity.x = 0;
+        break;
+    case SDLK_w:
+        if(cameraVelocity.z < 0)
+            cameraVelocity.z = 0;
+        break;
+    case SDLK_s:
+        if(cameraVelocity.z > 0)
+            cameraVelocity.z = 0;
+        break;
+    case SDLK_SPACE:
+        if(cameraVelocity.y > 0)
+            cameraVelocity.y = 0;
+        break;
+    case SDLK_LCTRL:
+        if(cameraVelocity.y < 0)
+            cameraVelocity.y = 0;
+        break;
+    }
 }
 
 static void processEvents()
@@ -58,6 +105,11 @@ static void processEvents()
     }
 }
 
+static void update(float delta)
+{
+    camera->setPosition(camera->getPosition() + cameraVelocity*delta);
+}
+
 static void render()
 {
     if(renderer)
@@ -76,7 +128,9 @@ static void createScene()
 {
     scene = std::make_shared<Scene> ();
 
+    // Create the camera
     camera = std::make_shared<Camera> ();
+    camera->perspective(60.0, float(screenWidth) / float(screenHeight), 0.1f, 1000.0f);
     scene->addObject(camera);
 
     // Add a cube in the scene of the scene.
@@ -147,9 +201,17 @@ int main(int argc, char* argv[])
 
     createScene();
 
+    auto lastTime = SDL_GetTicks();
+
     while(!quitting)
     {
         processEvents();
+
+        auto newTime = SDL_GetTicks();
+        auto deltaTime = newTime - lastTime;
+        lastTime = newTime;
+
+        update(deltaTime * 0.001f);
         render();
         SDL_Delay(5);
     }

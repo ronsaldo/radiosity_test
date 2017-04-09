@@ -19,6 +19,18 @@ public:
 
     void activateOn(Renderer *renderer);
 
+    void perspective(float fovy, float aspectRatio, float near, float far);
+
+    const glm::mat4 &getProjectionMatrix() const
+    {
+        return projectionMatrix;
+    }
+
+    void setProjectionMatrix(const glm::mat4 &newMatrix)
+    {
+        projectionMatrix = newMatrix;
+    }
+
 private:
     glm::mat4 projectionMatrix;
     CameraStateBufferedObject objectState;
