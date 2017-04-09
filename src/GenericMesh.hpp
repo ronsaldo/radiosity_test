@@ -76,6 +76,7 @@ public:
     MeshPtr mesh();
 
     GenericMeshBuilder &addCube(const glm::vec3 &extent);
+    GenericMeshBuilder &addCubeInterior(const glm::vec3 &extent);
 
     GenericMeshBuilder &setColor(const glm::vec4 &newColor)
     {

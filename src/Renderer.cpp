@@ -52,9 +52,12 @@ void Renderer::renderScene(const CameraPtr &camera, const ScenePtr &scene)
 {
     // Use sRGB
     glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glDepthFunc(GL_LESS);
 
     glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     colorProgram->activate();
     camera->activateOn(this);

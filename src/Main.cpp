@@ -131,6 +131,7 @@ static void createScene()
     // Create the camera
     camera = std::make_shared<Camera> ();
     camera->perspective(60.0, float(screenWidth) / float(screenHeight), 0.1f, 1000.0f);
+    camera->setPosition(glm::vec3(0.0, 0.60, 1.25));
     scene->addObject(camera);
 
     // Add a cube in the scene of the scene.
@@ -141,6 +142,16 @@ static void createScene()
             .mesh()
         );
         scene->addObject(cube);
+    }
+
+    // Add an interior cube
+    {
+        auto cubeInterior = std::make_shared<SceneMeshObject> ();
+        cubeInterior->setMesh(GenericMeshBuilder()
+            .addCubeInterior(glm::vec3(4.0, 4.0, 4.0))
+            .mesh()
+        );
+        scene->addObject(cubeInterior);
     }
 }
 
@@ -182,6 +193,9 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    // TODO: Add a FPS counter
+    SDL_GL_SetSwapInterval(1);
+
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if (GLEW_OK != err)
@@ -213,7 +227,7 @@ int main(int argc, char* argv[])
 
         update(deltaTime * 0.001f);
         render();
-        SDL_Delay(5);
+        //SDL_Delay(5);
     }
 
     SDL_GL_MakeCurrent(nullptr, nullptr);

@@ -34,7 +34,7 @@ MeshPtr GenericMeshBuilder::mesh()
     vertexSpecification->setVertexAttribute(0, 0, 3, GL_FLOAT, GL_FALSE, sizeof(GenericVertex), offsetof(GenericVertex, position));
     vertexSpecification->setVertexAttribute(0, 1, 4, GL_FLOAT, GL_FALSE, sizeof(GenericVertex), offsetof(GenericVertex, color));
     vertexSpecification->setVertexAttribute(0, 2, 2, GL_FLOAT, GL_FALSE, sizeof(GenericVertex), offsetof(GenericVertex, texcoord));
-    vertexSpecification->setVertexAttribute(0, 3, 2, GL_FLOAT, GL_FALSE, sizeof(GenericVertex), offsetof(GenericVertex, normal));
+    vertexSpecification->setVertexAttribute(0, 3, 3, GL_FLOAT, GL_FALSE, sizeof(GenericVertex), offsetof(GenericVertex, normal));
 
     // Create the mesh object
     auto result = std::make_shared<Mesh> ();
@@ -85,6 +85,42 @@ GenericMeshBuilder &GenericMeshBuilder::addCube(const glm::vec3 &extent)
 
     beginTriangles();
 
+    // +X Right
+    newBaseVertex();
+    addPositionNormal(glm::vec3(px, py, pz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, pz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, nz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, py, nz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addIndex(0); addIndex(1); addIndex(2);
+    addIndex(2); addIndex(3); addIndex(0);
+
+    // -X Left
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, py, pz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, ny, pz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, ny, nz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, py, nz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addIndex(2); addIndex(1); addIndex(0);
+    addIndex(0); addIndex(3); addIndex(2);
+
+    // +Y Top
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, py, pz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, py, pz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, py, nz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, py, nz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addIndex(0); addIndex(1); addIndex(2);
+    addIndex(2); addIndex(3); addIndex(0);
+
+    // -Y Bottom
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, ny, pz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, pz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, nz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, ny, nz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addIndex(2); addIndex(1); addIndex(0);
+    addIndex(0); addIndex(3); addIndex(2);
+
     // +Z Front
     newBaseVertex();
     addPositionNormal(glm::vec3(nx, ny, pz), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -100,6 +136,71 @@ GenericMeshBuilder &GenericMeshBuilder::addCube(const glm::vec3 &extent)
     addPositionNormal(glm::vec3(px, ny, nz), glm::vec3(0.0f, 0.0f, -1.0f));
     addPositionNormal(glm::vec3(px, py, nz), glm::vec3(0.0f, 0.0f, -1.0f));
     addPositionNormal(glm::vec3(nx, py, nz), glm::vec3(0.0f, 0.0f, -1.0f));
+    addIndex(2); addIndex(1); addIndex(0);
+    addIndex(0); addIndex(3); addIndex(2);
+
+    return *this;
+}
+
+GenericMeshBuilder &GenericMeshBuilder::addCubeInterior(const glm::vec3 &extent)
+{
+    auto halfExtent = extent*0.5f;
+    auto px = halfExtent.x; auto py = halfExtent.y; auto pz = halfExtent.z;
+    auto nx = -halfExtent.x; auto ny = -halfExtent.y; auto nz = -halfExtent.z;
+
+    beginTriangles();
+
+    // +X Right
+    newBaseVertex();
+    addPositionNormal(glm::vec3(px, py, pz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, pz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, nz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, py, nz), glm::vec3(-1.0f, 0.0f, 0.0f));
+    addIndex(2); addIndex(1); addIndex(0);
+    addIndex(0); addIndex(3); addIndex(2);
+
+    // -X Left
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, py, pz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, ny, pz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, ny, nz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, py, nz), glm::vec3(1.0f, 0.0f, 0.0f));
+    addIndex(0); addIndex(1); addIndex(2);
+    addIndex(2); addIndex(3); addIndex(0);
+
+    // +Y Top
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, py, pz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, py, pz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, py, nz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, py, nz), glm::vec3(0.0f, -1.0f, 0.0f));
+    addIndex(2); addIndex(1); addIndex(0);
+    addIndex(0); addIndex(3); addIndex(2);
+
+    // -Y Bottom
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, ny, pz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, pz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addPositionNormal(glm::vec3(px, ny, nz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addPositionNormal(glm::vec3(nx, ny, nz), glm::vec3(0.0f, 1.0f, 0.0f));
+    addIndex(0); addIndex(1); addIndex(2);
+    addIndex(2); addIndex(3); addIndex(0);
+
+    // +Z Front
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, ny, pz), glm::vec3(0.0f, 0.0f, -1.0f));
+    addPositionNormal(glm::vec3(px, ny, pz), glm::vec3(0.0f, 0.0f, -1.0f));
+    addPositionNormal(glm::vec3(px, py, pz), glm::vec3(0.0f, 0.0f, -1.0f));
+    addPositionNormal(glm::vec3(nx, py, pz), glm::vec3(0.0f, 0.0f, -1.0f));
+    addIndex(2); addIndex(1); addIndex(0);
+    addIndex(0); addIndex(3); addIndex(2);
+
+    // -Z Back
+    newBaseVertex();
+    addPositionNormal(glm::vec3(nx, ny, nz), glm::vec3(0.0f, 0.0f, 1.0f));
+    addPositionNormal(glm::vec3(px, ny, nz), glm::vec3(0.0f, 0.0f, 1.0f));
+    addPositionNormal(glm::vec3(px, py, nz), glm::vec3(0.0f, 0.0f, 1.0f));
+    addPositionNormal(glm::vec3(nx, py, nz), glm::vec3(0.0f, 0.0f, 1.0f));
     addIndex(0); addIndex(1); addIndex(2);
     addIndex(2); addIndex(3); addIndex(0);
 
