@@ -228,6 +228,8 @@ void Lightmap::computeIndirectLightBounce()
         auto &sourcePatch = patches[i];
         auto sourceNormalizationFactor = viewFactorsDen[i];
 
+        indirectLightBuffer[sourcePatch.texelIndex] += oldIndirectLightBuffer[sourcePatch.texelIndex]*sourceNormalizationFactor;
+
         for(size_t j = i + 1; j < patches.size(); ++j)
         {
             auto &destPatch = patches[j];
@@ -256,6 +258,8 @@ void Lightmap::computeRadiosityFactors()
     for(size_t i = 0; i < patches.size(); ++i)
     {
         auto &sourcePatch = patches[i];
+        viewFactors[i*columns + i]  = 1.0f;
+
         for(size_t j = i + 1; j < patches.size(); ++j)
         {
             auto &destPatch = patches[j];
@@ -295,9 +299,7 @@ void Lightmap::computeRadiosityFactors()
         float viewFactorSum = 0;
         for(size_t j = 0; j < columns; ++j)
             viewFactorSum += viewFactors[rowStart + j];
-        //printf("vf %f\n", viewFactorSum);
-        if(!closeTo(viewFactorSum, 0.0f))
-            viewFactorsDen[i] = Reflectivity / viewFactorSum;
+        viewFactorsDen[i] = Reflectivity / viewFactorSum;
     }
 
     printf("Visible: %d Occluded patches: %d\n", visibleCount, occlusionCount);
