@@ -14,6 +14,12 @@ DECLARE_CLASS(GpuBuffer);
 DECLARE_CLASS(Mesh);
 DECLARE_CLASS(Camera);
 
+enum class LightMapFilter
+{
+    Nearest = 0,
+    Linear,
+};
+
 class Renderer: public Object
 {
 public:
@@ -38,14 +44,36 @@ public:
 
     void useProgram(const GpuProgramPtr &program);
 
+    void setLightMapFilter(LightMapFilter filter)
+    {
+        lightMapFilter = filter;
+    }
+
+    void useLightMapProgram()
+    {
+        currentProgram = lightmapProgram;
+    }
+
+    void useColorProgram()
+    {
+        currentProgram = colorProgram;
+    }
+
+    void useNormalProgram()
+    {
+        currentProgram = normalProgram;
+    }
+
 private:
     bool createPrograms();
 
     GpuProgramPtr colorProgram;
+    GpuProgramPtr normalProgram;
     GpuProgramPtr lightmapProgram;
     GpuProgramPtr currentProgram;
     GLsync fences[3];
 
+    LightMapFilter lightMapFilter;
 };
 
 size_t getCurrentFrameBufferingIndex();

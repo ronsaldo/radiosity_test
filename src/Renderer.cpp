@@ -26,6 +26,7 @@ static const GLenum primitiveTypeMap[] = {
 Renderer::Renderer()
 {
     memset(fences, 0, sizeof(fences));
+    lightMapFilter = LightMapFilter::Linear;
 }
 
 Renderer::~Renderer()
@@ -44,6 +45,11 @@ bool Renderer::createPrograms()
     colorProgram = std::make_shared<GpuProgram> ();
     colorProgram->attachVertexFromFile("data/shaders/genericVertex.vert")
         .attachFragmentFromFile("data/shaders/color.frag")
+        .link();
+
+    normalProgram = std::make_shared<GpuProgram> ();
+    normalProgram->attachVertexFromFile("data/shaders/genericVertex.vert")
+        .attachFragmentFromFile("data/shaders/normal.frag")
         .link();
 
     lightmapProgram = std::make_shared<GpuProgram> ();
@@ -119,7 +125,13 @@ void Renderer::drawMesh(const MeshPtr &mesh)
     if(mesh->lightmap)
     {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, mesh->lightmap->getValidLightmapTexture()->getHandle());
+        auto lightmap = mesh->lightmap->getValidLightmapTexture();
+        if(lightMapFilter == LightMapFilter::Linear)
+            lightmap->setLinearFiltering();
+        else
+            lightmap->setNearestFiltering();
+
+        glBindTexture(GL_TEXTURE_2D, lightmap->getHandle());
     }
 
     mesh->vertexSpecification->activate();

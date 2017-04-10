@@ -75,6 +75,20 @@ static void onKeyDown(const SDL_KeyboardEvent &event)
     case SDLK_LSHIFT:
         cameraSpeed = CameraFastSpeed;
         break;
+    case SDLK_1:
+        renderer->useColorProgram();
+        break;
+    case SDLK_2:
+        renderer->useNormalProgram();
+        break;
+    case SDLK_3:
+        renderer->setLightMapFilter(LightMapFilter::Nearest);
+        renderer->useLightMapProgram();
+        break;
+    case SDLK_4:
+        renderer->setLightMapFilter(LightMapFilter::Linear);
+        renderer->useLightMapProgram();
+        break;
     }
 }
 
