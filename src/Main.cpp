@@ -196,8 +196,8 @@ static void createScene()
 
             // Add a cube
             .identity()
-            .translate(0, 0.25, 0)
-            .addCube(glm::vec3(0.5, 0.5, 0.5))
+            .translate(0, 0.30, 0)
+            .addCube(glm::vec3(0.6, 0.6, 0.6))
             .mesh()
         );
         scene->addObject(staticGeometry);

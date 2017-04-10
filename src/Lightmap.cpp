@@ -1,9 +1,12 @@
 #include "Lightmap.hpp"
 #include "GpuTexture.hpp"
+#include "Ray.hpp"
 #include <string.h>
+#include "Float.hpp"
 
 namespace RadiosityTest
 {
+
 static glm::vec3 Directions[] = {
     glm::vec3(1.0, 0.0, 0.0),
     glm::vec3(-1.0, 0.0, 0.0),
@@ -58,6 +61,11 @@ inline float edgeOrientation(const glm::vec2 &e1, const glm::vec2 &e2, const glm
     return u.x * v.y -  u.y * v.x;
 }
 
+inline bool isRightOf(const glm::vec2 &e1, const glm::vec2 &e2, const glm::vec2 &p)
+{
+    return edgeOrientation(e1, e2, p) < -FloatEpsilon;
+}
+
 inline uint8_t encodeColorChannel(float f)
 {
     return glm::clamp(int(f*255), 0, 255);
@@ -73,8 +81,39 @@ inline uint32_t encodeColor(const glm::vec4 &color)
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
+inline bool closeTo(const glm::vec3 &a, const glm::vec3 &b)
+{
+    return closeTo(a.x, b.x) && closeTo(a.y, b.y) && closeTo(a.z, b.z);
+}
+static float rayPlaneIntersection(const Ray &ray, const glm::vec3 &normal, float distance)
+{
+    auto den = glm::dot(ray.direction, normal);
+    if(closeTo(den, 0))
+        return -1.0f;
+
+    return (distance - glm::dot(ray.position, normal)) / den;
+}
+
+static float rayQuadIntersection(const Ray &ray, const LightmapCompactQuadSurface &quad)
+{
+    auto intersection = rayPlaneIntersection(ray, quad.normal, quad.distance);
+    if(intersection < 0)
+        return intersection;
+
+    auto intersectionPoint = ray.position + ray.direction*intersection;
+    auto projectedPoint = glm::vec2(glm::dot(quad.tangent, intersectionPoint), glm::dot(quad.bitangent, intersectionPoint));
+    if(isRightOf(quad.vertices[0], quad.vertices[1], projectedPoint) ||
+        isRightOf(quad.vertices[1], quad.vertices[2], projectedPoint) ||
+        isRightOf(quad.vertices[2], quad.vertices[3], projectedPoint) ||
+        isRightOf(quad.vertices[3], quad.vertices[0], projectedPoint))
+        return -1.0f;
+
+    return intersection;
+}
+
 Lightmap::Lightmap()
-    : frontBuffer(nullptr), backBuffer(nullptr)
+    : frontBuffer(nullptr), backBuffer(nullptr), directLightBuffer(nullptr), indirectLightBuffer(nullptr)
+
 {
 }
 
@@ -82,19 +121,25 @@ Lightmap::~Lightmap()
 {
     delete [] frontBuffer;
     delete [] backBuffer;
+    delete [] directLightBuffer;
+    delete [] indirectLightBuffer;
 }
 
 void Lightmap::createBuffers()
 {
     frontBuffer = new uint32_t[width*height];
     backBuffer = new uint32_t[width*height];
+    directLightBuffer = new glm::vec4[width*height];
+    indirectLightBuffer = new glm::vec4[width*height];
+    oldIndirectLightBuffer = new glm::vec4[width*height];
+
     memset(frontBuffer, 0, width*height*4);
     memset(backBuffer, 0, width*height*4);
 
     lightmapTexture = std::make_shared<GpuTexture> (GL_TEXTURE_2D);
     lightmapTexture->setStorage2D(1, width, height, GL_RGBA8);
-    lightmapTexture->setNearestFiltering();
-    //lightmapTexture->setLinearFiltering();
+    //lightmapTexture->setNearestFiltering();
+    lightmapTexture->setLinearFiltering();
     lightmapTexture->clampToEdge();
     lightmapTexture->uploadLevel(0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, frontBuffer);
     uploadedCount = 0;
@@ -122,12 +167,32 @@ void Lightmap::swapBuffers()
 
 void Lightmap::process(const std::vector<LightState> &lights)
 {
+    computeDirectLights(lights);
+    computeIndirectLightBounce();
+
+    for(size_t i = 0; i < width*height; ++i)
+    {
+        backBuffer[i] = encodeColor(directLightBuffer[i] + indirectLightBuffer[i]);
+    }
+
+    swapBuffers();
+}
+
+void Lightmap::computeDirectLights(const std::vector<LightState> &lights)
+{
     // Direct lights
     for(auto &patch : patches)
     {
         glm::vec4 lightColor;
         for(auto &light : lights)
         {
+            if(light.position.w == 1.0)
+            {
+                // Are we in shadow?
+                if(isRayOccluded(patch.position, patch.surfaceIndex, light.position))
+                    continue;
+            }
+
             auto lightDir = glm::vec3(light.position) - patch.position*light.position.w;
             auto lightDistance = glm::length(lightDir);
             auto L = lightDir / lightDistance;
@@ -147,11 +212,118 @@ void Lightmap::process(const std::vector<LightState> &lights)
             }
         }
 
-        backBuffer[patch.texelIndex] = encodeColor(lightColor);
+        directLightBuffer[patch.texelIndex] = lightColor;
+    }
+}
+
+void Lightmap::computeIndirectLightBounce()
+{
+    auto columns = patches.size();
+    auto row = 0;
+    std::swap(oldIndirectLightBuffer, indirectLightBuffer);
+    //memset(oldIndirectLightBuffer, 0, sizeof(oldIndirectLightBuffer[0])*width*height);
+    memset(indirectLightBuffer, 0, sizeof(indirectLightBuffer[0])*width*height);
+    for(size_t i = 0; i < patches.size(); ++i, row += columns)
+    {
+        auto &sourcePatch = patches[i];
+        auto sourceNormalizationFactor = viewFactorsDen[i];
+
+        for(size_t j = i + 1; j < patches.size(); ++j)
+        {
+            auto &destPatch = patches[j];
+            auto destNormalizationFactor = viewFactorsDen[i];
+
+            size_t index = row + j;
+            auto factor = viewFactors[index];
+
+            auto sourceFactor = factor*sourceNormalizationFactor;
+            auto destFactor = factor*destNormalizationFactor;
+
+            indirectLightBuffer[sourcePatch.texelIndex] += (oldIndirectLightBuffer[destPatch.texelIndex] + directLightBuffer[destPatch.texelIndex])*sourceFactor;
+            indirectLightBuffer[destPatch.texelIndex] += (oldIndirectLightBuffer[sourcePatch.texelIndex] + directLightBuffer[sourcePatch.texelIndex])*destFactor;
+        }
+    }
+}
+
+void Lightmap::computeRadiosityFactors()
+{
+    // TODO: Use sparse matrices.
+    viewFactors.resize(patches.size()*patches.size());
+    auto columns = patches.size();
+    auto occlusionCount = 0;
+    auto visibleCount = 0;
+
+    for(size_t i = 0; i < patches.size(); ++i)
+    {
+        auto &sourcePatch = patches[i];
+        for(size_t j = i + 1; j < patches.size(); ++j)
+        {
+            auto &destPatch = patches[j];
+
+            // Compute the visibility factor
+            if(closeTo(destPatch.position, sourcePatch.position))
+                continue;
+
+            auto patchDirection = glm::normalize(destPatch.position - sourcePatch.position);
+            auto destPatchVisibilityFactor = glm::dot(-patchDirection, destPatch.normal);
+            if(destPatchVisibilityFactor < 0)
+                continue;
+
+            auto sourcePatchVisibilityFactor = glm::dot(patchDirection, sourcePatch.normal);
+            if(sourcePatchVisibilityFactor < 0)
+                continue;
+
+            auto visibilityFactor = destPatchVisibilityFactor*sourcePatchVisibilityFactor;
+
+            // Discard the patches that are occluded
+            if(isRayOccluded(sourcePatch.position, sourcePatch.surfaceIndex, destPatch.position, destPatch.surfaceIndex))
+            {
+                ++occlusionCount;
+                continue;
+            }
+
+            ++visibleCount;
+            viewFactors[i*columns + j] = viewFactors[j*columns + i] = visibilityFactor;
+        }
     }
 
-    swapBuffers();
+    // Compute the view factor normalization constants
+    size_t rowStart = 0;
+    viewFactorsDen.resize(patches.size());
+    for(size_t i = 0; i < patches.size(); ++i, rowStart += columns)
+    {
+        float viewFactorSum = 0;
+        for(size_t j = 0; j < columns; ++j)
+            viewFactorSum += viewFactors[rowStart + j];
+        //printf("vf %f\n", viewFactorSum);
+        if(!closeTo(viewFactorSum, 0.0f))
+            viewFactorsDen[i] = Reflectivity / viewFactorSum;
+    }
+
+    printf("Visible: %d Occluded patches: %d\n", visibleCount, occlusionCount);
+    auto f = fopen("radFactors.bin", "w");
+    fwrite(&viewFactors[0], 4*viewFactors.size(), 1, f);
+    fclose(f);
 }
+
+bool Lightmap::isRayOccluded(glm::vec3 startPoint, size_t startSurfaceIndex,
+    glm::vec3 endPoint, size_t endSurfaceIndex)
+{
+    auto ray = Ray::fromEndPoints(startPoint, endPoint);
+    for(size_t i = 0; i < quadSurfaces.size(); ++i)
+    {
+        if(i == startSurfaceIndex || i == endSurfaceIndex)
+            continue;
+
+        auto &surface = quadSurfaces[i];
+        auto result = rayQuadIntersection(ray, surface);
+        if(result > 0.0 && result < ray.maxDistance)
+            return true;
+    }
+
+    return false;
+}
+
 
 LightmapPacker::LightmapPacker()
 {
@@ -293,10 +465,34 @@ LightmapPtr LightmapPacker::buildLightMap()
     {
         auto &source = quadSurfaces[i];
         auto &dest = lightmap->quadSurfaces[i];
+
+        // TBN matrix basis
         dest.normal = source.normal;
+        dest.distance = 0.0f;
         for(int i = 0; i < 4; ++i)
-            dest.positions[i] = source.positions[i];
+            dest.distance += glm::dot(dest.normal, source.positions[i])*0.25f;
+
+        auto normalDirection = findBestMatchingDirection(dest.normal);
+        dest.tangent = Directions[normalDirection + 2];
+        dest.bitangent = Directions[normalDirection + 4];
+
+        // Gram-Schmidth orthogonalization
+        dest.tangent = glm::normalize(dest.tangent - glm::dot(dest.tangent, dest.normal)*dest.normal);
+        dest.bitangent = glm::normalize(dest.bitangent - glm::dot(dest.bitangent, dest.normal)*dest.normal - glm::dot(dest.bitangent, dest.tangent)*dest.tangent);
+
+        for(int i = 0; i < 4; ++i)
+        {
+            auto &p = source.positions[i];
+            dest.vertices[i] = glm::vec2(glm::dot(dest.tangent, p), glm::dot(dest.bitangent, p));
+        }
+
+        //printf("Surface plane: %f %f %f , %f\n", dest.normal.x, dest.normal.y, dest.normal.z, dest.distance);
+        //printf("Surface tangent: %f %f %f\n", dest.tangent.x, dest.tangent.y, dest.tangent.z);
+        //printf("Surface bitangent: %f %f %f\n", dest.bitangent.x, dest.bitangent.y, dest.bitangent.z);
     }
+
+    // Compute the radiosity factors.
+    lightmap->computeRadiosityFactors();
 
     // Create the lightmap buffers
     lightmap->createBuffers();
