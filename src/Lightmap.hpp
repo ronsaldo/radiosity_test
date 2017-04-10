@@ -21,7 +21,9 @@ class LightmapPatch
 {
 public:
     glm::vec3 position;
-    glm::ivec2 texcoord;
+    glm::vec3 normal;
+    size_t texelIndex;
+    size_t surfaceIndex;
 };
 
 /**
@@ -64,8 +66,9 @@ struct LightmapQuadSurface
 {
     glm::vec3 positions[4];
     glm::vec2 texcoords[4];
-    glm::vec2 normal;
+    glm::vec3 normal;
     uint32_t indices[4];
+    size_t index;
 };
 
 /**
@@ -97,7 +100,16 @@ public:
     }
 
 private:
+    void buildLightMapPatchesFor(const LightmapPtr &lightmap);
+    void buildLightMapPatchesForTriangle(const LightmapPtr &lightmap,
+        size_t surfaceIndex,
+        const glm::vec3 &p1, const glm::vec3 &p2, const glm::vec3 &p3,
+        const glm::vec2 &tc1, const glm::vec2 &tc2, const glm::vec2 &tc3,
+        const glm::vec3 &n1, const glm::vec3 &n2, const glm::vec3 &n3
+    );
+
     std::vector<LightmapQuadSurface> quadSurfaces;
+    std::vector<bool> usedTexels;
     float texelScale;
 };
 

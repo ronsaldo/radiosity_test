@@ -5,6 +5,7 @@
 #include "Mesh.hpp"
 #include "Lightmap.hpp"
 #include "GenericVertex.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace RadiosityTest
 {
@@ -16,6 +17,23 @@ class GenericMeshBuilder
 public:
     GenericMeshBuilder();
     ~GenericMeshBuilder();
+
+    GenericMeshBuilder &identity()
+    {
+        transformation = glm::mat4();
+        return *this;
+    }
+
+    GenericMeshBuilder &translate(const glm::vec3 &translation)
+    {
+        transformation = glm::translate(glm::mat4(), translation) * transformation;
+        return *this;
+    }
+
+    GenericMeshBuilder &translate(float x, float y, float z)
+    {
+        return translate(glm::vec3(x, y, z));
+    }
 
     GenericMeshBuilder &newBaseVertex()
     {
@@ -32,7 +50,7 @@ public:
     GenericMeshBuilder &addPositionNormal(const glm::vec3 &position, const glm::vec3 &normal)
     {
         GenericVertex vertex;
-        vertex.position = position;
+        vertex.position = transformation * glm::vec4(position, 1.0);
         vertex.normal = normal;
         vertex.color = currentColor;
         return addVertex(vertex);
@@ -41,7 +59,7 @@ public:
     GenericMeshBuilder &addPositionNormalTexcoord(const glm::vec3 &position, const glm::vec3 &normal, const glm::vec2 &texcoord)
     {
         GenericVertex vertex;
-        vertex.position = position;
+        vertex.position = transformation * glm::vec4(position, 1.0);
         vertex.normal = normal;
         vertex.texcoord = texcoord;
         vertex.color = currentColor;
@@ -84,6 +102,7 @@ private:
     uint32_t baseVertex;
     glm::vec4 currentColor;
     LightmapPacker lightmapPacker;
+    glm::mat4 transformation;
 };
 
 } // End of namspace RadiosityTest

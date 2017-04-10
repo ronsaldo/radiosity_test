@@ -12,7 +12,7 @@ class Box2
 {
 public:
     Box2()
-        : min(FP_INFINITE, FP_INFINITE), max(-FP_INFINITE, -FP_INFINITE) {}
+        : min(INFINITY, INFINITY), max(-INFINITY, -INFINITY) {}
     Box2(float minX, float minY, float maxX, float maxY)
         : min(minX, minY), max(maxX, maxY) {}
 

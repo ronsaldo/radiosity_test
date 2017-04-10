@@ -185,9 +185,13 @@ static void createScene()
         staticGeometry->setMesh(GenericMeshBuilder()
 
             // Add the walls
-            .addCubeInterior(glm::vec3(4.0, 4.0, 4.0))
+            .identity()
+            .translate(0, 1.0, 0)
+            .addCubeInterior(glm::vec3(4.0, 2.0, 4.0))
 
             // Add a cube
+            .identity()
+            .translate(0, 0.25, 0)
             .addCube(glm::vec3(0.5, 0.5, 0.5))
             .mesh()
         );

@@ -52,6 +52,13 @@ inline size_t roundToNextPowerOfTwo(size_t value)
     return result;
 }
 
+inline float edgeOrientation(const glm::vec2 &e1, const glm::vec2 &e2, const glm::vec2 &p)
+{
+    auto u = e2 - e1;
+    auto v = p - e1;
+    return u.x * v.y -  u.y * v.x;
+}
+
 Lightmap::Lightmap()
     : frontBuffer(nullptr), backBuffer(nullptr)
 {
@@ -70,7 +77,7 @@ void Lightmap::createBuffers()
     memset(frontBuffer, 0, width*height*4);
     memset(backBuffer, 0, width*height*4);
 
-    std::mt19937 random;
+    /*std::mt19937 random;
     random.seed(0);
 
     for(size_t i = 0; i < width*height; ++i)
@@ -78,6 +85,15 @@ void Lightmap::createBuffers()
         uint8_t gray = random() & 0xFF;
         uint32_t color = gray | (gray << 8) | (gray << 16) | (0xFF << 24);
         frontBuffer[i] = backBuffer[i] = color;
+    }
+    */
+    for(auto &patch : patches)
+    {
+        auto lightDistance = glm::length(glm::vec3(0.0, 1.0, 0.0) - patch.position);
+        auto lightAmount = glm::clamp(1.0f - lightDistance / 3, 0.0f, 1.0f);
+        uint8_t gray = glm::clamp(int(lightAmount *255), 0, 255);
+        uint32_t color = gray | (gray << 8) | (gray << 16) | (0xFF << 24);
+        frontBuffer[patch.texelIndex] = backBuffer[patch.texelIndex] = color;
     }
 
     lightmapTexture = std::make_shared<GpuTexture> (GL_TEXTURE_2D);
@@ -205,7 +221,9 @@ LightmapPtr LightmapPacker::buildLightMap()
     auto lightmap = std::make_shared<Lightmap> ();
     lightmap->width = lightmapWidth;
     lightmap->height = lightmapHeight;
-    lightmap->createBuffers();
+
+    buildLightMapPatchesFor(lightmap);
+    printf("Patch count %zu\n", lightmap->patches.size());
 
     // Normalize the lightmap texture coordinates
     auto texcoordScale = glm::vec2(1.0f / lightmapWidth, 1.0f / lightmapHeight);
@@ -219,7 +237,108 @@ LightmapPtr LightmapPacker::buildLightMap()
         }
     }
 
+    // Create the lightmap buffers
+    lightmap->createBuffers();
+
     return lightmap;
+}
+
+void LightmapPacker::buildLightMapPatchesFor(const LightmapPtr &lightmap)
+{
+    usedTexels.resize(lightmap->width*lightmap->height);
+
+    // Create the lightmap patches.
+    for(auto &surface : quadSurfaces)
+    {
+        buildLightMapPatchesForTriangle(lightmap, surface.index,
+            surface.positions[0], surface.positions[1], surface.positions[2],
+            surface.texcoords[0], surface.texcoords[1], surface.texcoords[2],
+            surface.normal, surface.normal, surface.normal);
+        buildLightMapPatchesForTriangle(lightmap, surface.index,
+            surface.positions[2], surface.positions[3], surface.positions[0],
+            surface.texcoords[2], surface.texcoords[3], surface.texcoords[0],
+            surface.normal, surface.normal, surface.normal);
+    }
+}
+
+void LightmapPacker::buildLightMapPatchesForTriangle(const LightmapPtr &lightmap,
+    size_t surfaceIndex,
+    const glm::vec3 &p1, const glm::vec3 &p2, const glm::vec3 &p3,
+    const glm::vec2 &tc1, const glm::vec2 &tc2, const glm::vec2 &tc3,
+    const glm::vec3 &n1, const glm::vec3 &n2, const glm::vec3 &n3
+)
+{
+    // Rasterization algorithm taken from: https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer/
+    if(edgeOrientation(tc1, tc2, tc3) < 0)
+    {
+        return buildLightMapPatchesForTriangle(lightmap, surfaceIndex,
+            p3, p2, p1,
+            tc3, tc2, tc1,
+            n3, n2, n1);
+    }
+
+    // Triangle rasterization.
+    Box2 box;
+    box.insertPoint(tc1);
+    box.insertPoint(tc2);
+    box.insertPoint(tc3);
+
+    int minX = box.min.x;
+    int minY = box.min.y;
+    int maxX = ceil(box.max.x);
+    int maxY = ceil(box.max.y);
+    if(maxX >= intptr_t(lightmap->width))
+        maxX = lightmap->width - 1;
+    if(maxY >= intptr_t(lightmap->height))
+        maxY = lightmap->height - 1;
+
+    glm::vec2 f12(tc1.y - tc2.y, tc2.x - tc1.x);
+    glm::vec2 f23(tc2.y - tc3.y, tc3.x - tc2.x);
+    glm::vec2 f31(tc3.y - tc1.y, tc1.x - tc3.x);
+
+    auto minP = glm::vec2(minX, minY);
+    auto rowW1 = edgeOrientation(tc2, tc3, minP);
+    auto rowW2 = edgeOrientation(tc3, tc1, minP);
+    auto rowW3 = edgeOrientation(tc1, tc2, minP);
+
+    for(int ty = minY; ty <= maxY; ++ty)
+    {
+        auto w1 = rowW1;
+        auto w2 = rowW2;
+        auto w3 = rowW3;
+
+        for(int tx = minX; tx <= maxX; ++tx)
+        {
+            if(w1 >= 0 && w2 >= 0 && w3 >= 0)
+            {
+                size_t texelIndex = ty*lightmap->width + tx;
+                if(!usedTexels[texelIndex])
+                {
+                    // Mark the texel as used.
+                    usedTexels[texelIndex] = true;
+                    auto normFactor = w1 + w2 + w3;
+                    auto pw1 = w1 / normFactor;
+                    auto pw2 = w2 / normFactor;
+                    auto pw3 = w3 / normFactor;
+
+                    LightmapPatch patch;
+                    patch.texelIndex = texelIndex;
+                    patch.normal = glm::normalize(n1*pw1 + n2*pw2 + n3*pw3);
+                    patch.position = p1*pw1 + p2*pw2 + p3*pw3;
+                    patch.surfaceIndex = surfaceIndex;
+                    lightmap->patches.push_back(patch);
+                }
+            }
+
+            w1 += f23.x;
+            w2 += f31.x;
+            w3 += f12.x;
+        }
+
+        rowW1 += f23.y;
+        rowW2 += f31.y;
+        rowW3 += f12.y;
+    }
 }
 
 } // End of namespace RadiosityTest
