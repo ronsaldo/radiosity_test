@@ -14,6 +14,11 @@ Camera::~Camera()
 {
 }
 
+void Camera::accept(SceneVisitor *visitor)
+{
+    return visitor->visitCamera(this);
+}
+
 void Camera::renderWith(Renderer *renderer)
 {
 }

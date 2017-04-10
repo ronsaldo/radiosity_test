@@ -3,6 +3,7 @@
 
 #include "Object.hpp"
 #include <vector>
+#include <mutex>
 
 namespace RadiosityTest
 {
@@ -25,8 +26,15 @@ public:
     {
         return objects;
     }
+
+    std::mutex &getMutex()
+    {
+        return mutex;
+    }
+    
 private:
     SceneObjects objects;
+    std::mutex mutex;
 };
 
 } // namespace RadiosityTest

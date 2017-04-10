@@ -11,8 +11,20 @@ namespace RadiosityTest
 {
 DECLARE_CLASS(Scene)
 DECLARE_CLASS(SceneObject);
+DECLARE_CLASS(SceneMeshObject);
+DECLARE_CLASS(Camera);
 DECLARE_CLASS(Mesh);
 DECLARE_CLASS(Renderer);
+DECLARE_CLASS(Light);
+
+class SceneVisitor : public Object
+{
+public:
+    virtual void visitLight(Light *object) {}
+    virtual void visitSceneObject(SceneObject *object) {}
+    virtual void visitSceneMeshObject(SceneMeshObject *object) {}
+    virtual void visitCamera(Camera *object) {}
+};
 
 /**
  * Scene object
@@ -23,6 +35,8 @@ class SceneObject : public Object,
 public:
     SceneObject();
     ~SceneObject();
+
+    virtual void accept(SceneVisitor *visitor);
 
     virtual void addedToScene(Scene *newScene);
     virtual void prepareForRendering();
@@ -63,6 +77,9 @@ public:
         renderable = newRenderable;
     }
 
+    void lookUp();
+    void lookDown();
+
     glm::mat4 getCurrentTransform() const;
 
 private:
@@ -83,6 +100,8 @@ public:
 
     virtual void renderWith(Renderer *renderer) override;
     virtual void prepareForRendering() override;
+
+    virtual void accept(SceneVisitor *visitor) override;
 
     const MeshPtr &getMesh() const
     {

@@ -17,6 +17,8 @@ public:
     virtual void renderWith(Renderer *renderer) override;
     virtual void prepareForRendering() override;
 
+    virtual void accept(SceneVisitor *visitor) override;
+
     void activateOn(Renderer *renderer);
 
     void perspective(float fovy, float aspectRatio, float near, float far);

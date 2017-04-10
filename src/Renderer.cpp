@@ -73,8 +73,12 @@ void Renderer::renderScene(const CameraPtr &camera, const ScenePtr &scene)
 
     useProgram(currentProgram);
     camera->activateOn(this);
-    for(auto &sceneObject : scene->getObjects())
-        drawSceneObject(sceneObject);
+    {
+        std::unique_lock<std::mutex> (scene->getMutex());
+        for(auto &sceneObject : scene->getObjects())
+            drawSceneObject(sceneObject);
+
+    }
 }
 
 void Renderer::beginFrame()
@@ -115,7 +119,7 @@ void Renderer::drawMesh(const MeshPtr &mesh)
     if(mesh->lightmap)
     {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, mesh->lightmap->getLightmapTexture()->getHandle());
+        glBindTexture(GL_TEXTURE_2D, mesh->lightmap->getValidLightmapTexture()->getHandle());
     }
 
     mesh->vertexSpecification->activate();

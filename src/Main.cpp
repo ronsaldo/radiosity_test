@@ -6,6 +6,8 @@
 #include "SceneObject.hpp"
 #include "Camera.hpp"
 #include "GenericMesh.hpp"
+#include "Light.hpp"
+#include "LightmapBuildProcess.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 
 using namespace RadiosityTest;
@@ -22,6 +24,9 @@ static void render();
 static RendererPtr renderer;
 static ScenePtr scene;
 static CameraPtr camera;
+static LightmapBuildProcessPtr lightmapProcess;
+static LightPtr spotLight;
+
 static glm::vec3 cameraVelocity;
 static glm::vec2 cameraAngularVelocity;
 static glm::vec2 cameraAngle;
@@ -197,6 +202,17 @@ static void createScene()
         );
         scene->addObject(staticGeometry);
     }
+
+    // Create the light
+    {
+        spotLight = std::make_shared<Light> ();
+        spotLight->setType(LightType::Spot);
+        spotLight->setPosition(glm::vec3(0.0f, 1.5f, -0.5f));
+        spotLight->lookDown();
+        spotLight->setSpotCutoff(glm::vec2(70, 60));
+        spotLight->setAttenuationFactors(glm::vec3(1.0f, 0.0f, 3.0f));
+        scene->addObject(spotLight);
+    }
 }
 
 int main(int argc, char* argv[])
@@ -259,6 +275,10 @@ int main(int argc, char* argv[])
 
     createScene();
 
+    lightmapProcess = std::make_shared<LightmapBuildProcess> ();
+    lightmapProcess->setScene(scene);
+    lightmapProcess->start();
+
     auto lastTime = SDL_GetTicks();
 
     while(!quitting)
@@ -274,6 +294,7 @@ int main(int argc, char* argv[])
         //SDL_Delay(5);
     }
 
+    lightmapProcess->shutdown();
     SDL_GL_MakeCurrent(nullptr, nullptr);
     SDL_GL_DeleteContext(glContext);
     SDL_DestroyWindow(window);

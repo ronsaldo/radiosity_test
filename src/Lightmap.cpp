@@ -1,6 +1,5 @@
 #include "Lightmap.hpp"
 #include "GpuTexture.hpp"
-#include <random>
 #include <string.h>
 
 namespace RadiosityTest
@@ -59,6 +58,21 @@ inline float edgeOrientation(const glm::vec2 &e1, const glm::vec2 &e2, const glm
     return u.x * v.y -  u.y * v.x;
 }
 
+inline uint8_t encodeColorChannel(float f)
+{
+    return glm::clamp(int(f*255), 0, 255);
+}
+
+inline uint32_t encodeColor(const glm::vec4 &color)
+{
+    auto r = encodeColorChannel(color.r);
+    auto g = encodeColorChannel(color.g);
+    auto b = encodeColorChannel(color.b);
+    auto a = encodeColorChannel(color.a);
+
+    return r | (g << 8) | (b << 16) | (a << 24);
+}
+
 Lightmap::Lightmap()
     : frontBuffer(nullptr), backBuffer(nullptr)
 {
@@ -77,31 +91,66 @@ void Lightmap::createBuffers()
     memset(frontBuffer, 0, width*height*4);
     memset(backBuffer, 0, width*height*4);
 
-    /*std::mt19937 random;
-    random.seed(0);
-
-    for(size_t i = 0; i < width*height; ++i)
-    {
-        uint8_t gray = random() & 0xFF;
-        uint32_t color = gray | (gray << 8) | (gray << 16) | (0xFF << 24);
-        frontBuffer[i] = backBuffer[i] = color;
-    }
-    */
-    for(auto &patch : patches)
-    {
-        auto lightDistance = glm::length(glm::vec3(0.0, 1.0, 0.0) - patch.position);
-        auto lightAmount = glm::clamp(1.0f - lightDistance / 3, 0.0f, 1.0f);
-        uint8_t gray = glm::clamp(int(lightAmount *255), 0, 255);
-        uint32_t color = gray | (gray << 8) | (gray << 16) | (0xFF << 24);
-        frontBuffer[patch.texelIndex] = backBuffer[patch.texelIndex] = color;
-    }
-
     lightmapTexture = std::make_shared<GpuTexture> (GL_TEXTURE_2D);
     lightmapTexture->setStorage2D(1, width, height, GL_RGBA8);
     lightmapTexture->setNearestFiltering();
     //lightmapTexture->setLinearFiltering();
     lightmapTexture->clampToEdge();
     lightmapTexture->uploadLevel(0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, frontBuffer);
+    uploadedCount = 0;
+    computedCount = 0;
+}
+
+GpuTexturePtr Lightmap::getValidLightmapTexture()
+{
+    std::unique_lock<std::mutex> l(mutex);
+    if(uploadedCount != computedCount)
+    {
+        lightmapTexture->uploadLevel(0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, frontBuffer);
+        uploadedCount = computedCount;
+    }
+
+    return lightmapTexture;
+}
+
+void Lightmap::swapBuffers()
+{
+    std::unique_lock<std::mutex> l(mutex);
+    ++computedCount;
+    std::swap(frontBuffer, backBuffer);
+}
+
+void Lightmap::process(const std::vector<LightState> &lights)
+{
+    // Direct lights
+    for(auto &patch : patches)
+    {
+        glm::vec4 lightColor;
+        for(auto &light : lights)
+        {
+            auto lightDir = glm::vec3(light.position) - patch.position*light.position.w;
+            auto lightDistance = glm::length(lightDir);
+            auto L = lightDir / lightDistance;
+            auto NdotL = std::max(glm::dot(L, patch.normal), 0.0f);
+            if(NdotL > 0.0f)
+            {
+                auto spotFactor = 1.0f;
+                if(light.spotCutoff.x > -0.5)
+                {
+                    auto NdotS = glm::dot(light.spotDirection, L);
+                    spotFactor = glm::pow(glm::smoothstep(light.spotCutoff.x, light.spotCutoff.y, NdotS), light.spotExponent);
+                }
+
+                auto lightAttenuation = spotFactor / (light.attenuation.x + light.attenuation.y*lightDistance + light.attenuation.z*(lightDistance*lightDistance));
+                auto lightAmount = NdotL*lightAttenuation;
+                lightColor += lightAmount*light.intensity;
+            }
+        }
+
+        backBuffer[patch.texelIndex] = encodeColor(lightColor);
+    }
+
+    swapBuffers();
 }
 
 LightmapPacker::LightmapPacker()
@@ -131,6 +180,7 @@ void LightmapPacker::addQuadSurface(
     auto tc4 = projectToPlanes(p4, uDirection, vDirection);
 
     LightmapQuadSurface surface;
+    surface.index = quadSurfaces.size();
     surface.normal = normal;
     surface.positions[0] = p1; surface.positions[1] = p2; surface.positions[2] = p3; surface.positions[3] = p4;
     surface.texcoords[0] = tc1; surface.texcoords[1] = tc2; surface.texcoords[2] = tc3; surface.texcoords[3] = tc4;
@@ -235,6 +285,17 @@ LightmapPtr LightmapPacker::buildLightMap()
             surface.texcoords[i] = (surface.texcoords[i] + 0.5f) * texcoordScale;
             //printf("tc: %f %f\n", surface.texcoords[i].x, surface.texcoords[i].y);
         }
+    }
+
+    // Pass the surfaces.
+    lightmap->quadSurfaces.resize(quadSurfaces.size());
+    for(size_t i = 0; i < quadSurfaces.size(); ++i)
+    {
+        auto &source = quadSurfaces[i];
+        auto &dest = lightmap->quadSurfaces[i];
+        dest.normal = source.normal;
+        for(int i = 0; i < 4; ++i)
+            dest.positions[i] = source.positions[i];
     }
 
     // Create the lightmap buffers

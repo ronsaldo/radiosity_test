@@ -4,8 +4,10 @@
 #include "Object.hpp"
 #include "Box2.hpp"
 #include "GenericVertex.hpp"
+#include "LightState.hpp"
 #include <glm/glm.hpp>
 #include <vector>
+#include <mutex>
 
 namespace RadiosityTest
 {
@@ -27,6 +29,16 @@ public:
 };
 
 /**
+ * A lightmap compact surface
+ */
+class LightmapCompactQuadSurface
+{
+public:
+    glm::vec3 positions[4];
+    glm::vec3 normal;
+};
+
+/**
  * A lightmap
  */
 class Lightmap : public Object
@@ -36,10 +48,12 @@ public:
     ~Lightmap();
 
     void createBuffers();
+    void process(const std::vector<LightState> &lights);
 
     size_t width;
     size_t height;
     std::vector<LightmapPatch> patches;
+    std::vector<LightmapCompactQuadSurface> quadSurfaces;
 
     uint32_t *getFrontBuffer() const
     {
@@ -56,10 +70,17 @@ public:
         return lightmapTexture;
     }
 
+    GpuTexturePtr getValidLightmapTexture();
+
 private:
+    void swapBuffers();
+
     uint32_t *frontBuffer;
     uint32_t *backBuffer;
     GpuTexturePtr lightmapTexture;
+    std::mutex mutex;
+    int uploadedCount;
+    int computedCount;
 };
 
 struct LightmapQuadSurface

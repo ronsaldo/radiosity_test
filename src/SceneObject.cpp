@@ -26,6 +26,11 @@ void SceneObject::prepareForRendering()
 {
 }
 
+void SceneObject::accept(SceneVisitor *visitor)
+{
+    visitor->visitSceneObject(this);
+};
+
 void SceneObject::renderWith(Renderer *renderer)
 {
 }
@@ -40,6 +45,16 @@ glm::mat4 SceneObject::getCurrentTransform() const
     return matrix;
 }
 
+void SceneObject::lookDown()
+{
+    setOrientation(glm::rotate(glm::mat4(), -90.0f, glm::vec3(1, 0, 0)));
+}
+
+void SceneObject::lookUp()
+{
+    setOrientation(glm::rotate(glm::mat4(), 90.0f, glm::vec3(1, 0, 0)));
+}
+
 SceneMeshObject::SceneMeshObject()
 {
 }
@@ -47,6 +62,11 @@ SceneMeshObject::SceneMeshObject()
 SceneMeshObject::~SceneMeshObject()
 {
 }
+
+void SceneMeshObject::accept(SceneVisitor *visitor)
+{
+    visitor->visitSceneMeshObject(this);
+};
 
 void SceneMeshObject::renderWith(Renderer *renderer)
 {
