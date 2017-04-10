@@ -219,9 +219,10 @@ void Lightmap::computeDirectLights(const std::vector<LightState> &lights)
 void Lightmap::computeIndirectLightBounce()
 {
     auto columns = patches.size();
+#if 0
+    // Parallel iterative bounce
     auto row = 0;
     std::swap(oldIndirectLightBuffer, indirectLightBuffer);
-    //memset(oldIndirectLightBuffer, 0, sizeof(oldIndirectLightBuffer[0])*width*height);
     memset(indirectLightBuffer, 0, sizeof(indirectLightBuffer[0])*width*height);
     for(size_t i = 0; i < patches.size(); ++i, row += columns)
     {
@@ -245,6 +246,29 @@ void Lightmap::computeIndirectLightBounce()
             indirectLightBuffer[destPatch.texelIndex] += (oldIndirectLightBuffer[sourcePatch.texelIndex] + directLightBuffer[sourcePatch.texelIndex])*destFactor;
         }
     }
+#else
+    // Sequential iterative bounce
+    auto row = 0;
+    for(size_t i = 0; i < patches.size(); ++i, row += columns)
+    {
+        auto &receivingPatch = patches[i];
+        auto &normalizationFactor = viewFactorsDen[i];
+        auto &dest = indirectLightBuffer[receivingPatch.texelIndex];
+
+        glm::vec4 value;
+        for(size_t j = 0; j < columns; ++j)
+        {
+            auto &emitionPatch = patches[j];
+            auto &emition = indirectLightBuffer[emitionPatch.texelIndex];
+
+            auto factor = viewFactors[row + j]*normalizationFactor;
+            value += (emition + directLightBuffer[emitionPatch.texelIndex])*factor;
+        }
+
+        dest = value;
+    }
+#endif
+
 }
 
 void Lightmap::computeRadiosityFactors()
