@@ -12,6 +12,10 @@ set(RadiosityTest_SOURCES
     GpuBuffer.hpp
     GpuProgram.cpp
     GpuProgram.hpp
+    GpuTexture.cpp
+    GpuTexture.hpp
+    Lightmap.cpp
+    Lightmap.hpp
     Main.cpp
     Mesh.hpp
     Object.hpp

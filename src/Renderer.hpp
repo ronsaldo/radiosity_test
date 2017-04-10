@@ -36,10 +36,14 @@ public:
         bindUniformBufferRange(pointer.getBufferObject(), binding, pointer.getBufferOffset(), pointer.getElementSize());
     }
 
+    void useProgram(const GpuProgramPtr &program);
+
 private:
     bool createPrograms();
 
     GpuProgramPtr colorProgram;
+    GpuProgramPtr lightmapProgram;
+    GpuProgramPtr currentProgram;
     GLsync fences[3];
 
 };

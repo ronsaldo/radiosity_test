@@ -1,5 +1,6 @@
 #include "Renderer.hpp"
 #include "GpuProgram.hpp"
+#include "GpuTexture.hpp"
 #include "GenericMesh.hpp"
 #include "VertexSpecification.hpp"
 #include "Scene.hpp"
@@ -45,7 +46,18 @@ bool Renderer::createPrograms()
         .attachFragmentFromFile("data/shaders/color.frag")
         .link();
 
+    lightmapProgram = std::make_shared<GpuProgram> ();
+    lightmapProgram->attachVertexFromFile("data/shaders/genericVertex.vert")
+        .attachFragmentFromFile("data/shaders/lightmap.frag")
+        .link();
+
+    currentProgram = lightmapProgram;
     return colorProgram->isValid();
+}
+
+void Renderer::useProgram(const GpuProgramPtr &program)
+{
+    program->activate();
 }
 
 void Renderer::renderScene(const CameraPtr &camera, const ScenePtr &scene)
@@ -59,7 +71,7 @@ void Renderer::renderScene(const CameraPtr &camera, const ScenePtr &scene)
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    colorProgram->activate();
+    useProgram(currentProgram);
     camera->activateOn(this);
     for(auto &sceneObject : scene->getObjects())
         drawSceneObject(sceneObject);
@@ -100,12 +112,17 @@ void Renderer::bindUniformBufferRange(const GpuBufferPtr &buffer, GLuint binding
 
 void Renderer::drawMesh(const MeshPtr &mesh)
 {
+    if(mesh->lightmap)
+    {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, mesh->lightmap->getLightmapTexture()->getHandle());
+    }
+
     mesh->vertexSpecification->activate();
     for(auto &submesh : mesh->submeshes)
     {
         GLenum primitiveMode = primitiveTypeMap[(int)submesh.primitiveType];
         glDrawElements(primitiveMode, submesh.indexCount, GL_UNSIGNED_INT, reinterpret_cast<void*> (submesh.startIndex*4));
-
     }
 }
 

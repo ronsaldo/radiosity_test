@@ -9,6 +9,7 @@ namespace RadiosityTest
 DECLARE_CLASS(GpuBuffer);
 DECLARE_CLASS(Mesh);
 DECLARE_CLASS(VertexSpecification);
+DECLARE_CLASS(Lightmap);
 
 /**
  * A primitive type
@@ -39,6 +40,7 @@ public:
     GpuBufferPtr vertexBuffer;
     GpuBufferPtr indexBuffer;
     VertexSpecificationPtr vertexSpecification;
+    LightmapPtr lightmap;
     std::vector<Submesh> submeshes;
 };
 

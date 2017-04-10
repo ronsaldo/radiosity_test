@@ -1,24 +1,13 @@
 #ifndef RADIOSITY_TEST_GERNERIC_MESH_HPP
 #define RADIOSITY_TEST_GERNERIC_MESH_HPP
 
-#include <glm/glm.hpp>
 #include <stdint.h>
 #include "Mesh.hpp"
+#include "Lightmap.hpp"
+#include "GenericVertex.hpp"
 
 namespace RadiosityTest
 {
-
-/**
- * Generic vertex
- */
-struct GenericVertex
-{
-    glm::vec3 position;
-    glm::vec3 normal;
-    glm::vec4 color;
-    glm::vec2 texcoord;
-};
-
 /**
  * Generic mesh builder
  */
@@ -65,6 +54,8 @@ public:
         return *this;
     }
 
+    GenericMeshBuilder &addQuad(uint32_t i1, uint32_t i2, uint32_t i3, uint32_t i4);
+
     GenericMeshBuilder &beginTriangles()
     {
         beginPrimitives(PrimitiveType::Triangle);
@@ -92,6 +83,7 @@ private:
     std::vector<Submesh> submeshes;
     uint32_t baseVertex;
     glm::vec4 currentColor;
+    LightmapPacker lightmapPacker;
 };
 
 } // End of namspace RadiosityTest

@@ -6,6 +6,7 @@
 #include "SceneObject.hpp"
 #include "Camera.hpp"
 #include "GenericMesh.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
 using namespace RadiosityTest;
 
@@ -22,6 +23,12 @@ static RendererPtr renderer;
 static ScenePtr scene;
 static CameraPtr camera;
 static glm::vec3 cameraVelocity;
+static glm::vec2 cameraAngularVelocity;
+static glm::vec2 cameraAngle;
+
+static constexpr float CameraSlowSpeed = 1.0f;
+static constexpr float CameraFastSpeed = 3.0f;
+static float cameraSpeed = CameraSlowSpeed;
 
 static void onKeyDown(const SDL_KeyboardEvent &event)
 {
@@ -47,6 +54,21 @@ static void onKeyDown(const SDL_KeyboardEvent &event)
         break;
     case SDLK_LCTRL:
         cameraVelocity.y = -1.0f;
+        break;
+    case SDLK_LEFT:
+        cameraAngularVelocity.y = 1.0f;
+        break;
+    case SDLK_RIGHT:
+        cameraAngularVelocity.y = -1.0f;
+        break;
+    case SDLK_UP:
+        cameraAngularVelocity.x = 1.0f;
+        break;
+    case SDLK_DOWN:
+        cameraAngularVelocity.x = -1.0f;
+        break;
+    case SDLK_LSHIFT:
+        cameraSpeed = CameraFastSpeed;
         break;
     }
 }
@@ -82,6 +104,25 @@ static void onKeyUp(const SDL_KeyboardEvent &event)
         if(cameraVelocity.y < 0)
             cameraVelocity.y = 0;
         break;
+    case SDLK_LEFT:
+        if(cameraAngularVelocity.y > 0)
+            cameraAngularVelocity.y = 0.0f;
+        break;
+    case SDLK_RIGHT:
+        if(cameraAngularVelocity.y < 0)
+            cameraAngularVelocity.y = 0.0f;
+        break;
+    case SDLK_UP:
+        if(cameraAngularVelocity.x > 0)
+            cameraAngularVelocity.x = 0.0f;
+        break;
+    case SDLK_DOWN:
+        if(cameraAngularVelocity.x < 0)
+            cameraAngularVelocity.x = 0.0f;
+        break;
+    case SDLK_LSHIFT:
+        cameraSpeed = CameraSlowSpeed;
+        break;
     }
 }
 
@@ -107,7 +148,11 @@ static void processEvents()
 
 static void update(float delta)
 {
-    camera->setPosition(camera->getPosition() + cameraVelocity*delta);
+    cameraAngle += cameraAngularVelocity*delta;
+    glm::mat3 cameraOrientation = glm::rotate(glm::mat4(), cameraAngle.y, glm::vec3(0,1,0)) * glm::rotate(glm::mat4(), cameraAngle.x, glm::vec3(1,0,0));
+
+    camera->setOrientation(cameraOrientation);
+    camera->setPosition(camera->getPosition() + cameraOrientation*(cameraVelocity*delta*cameraSpeed));
 }
 
 static void render()
@@ -134,24 +179,19 @@ static void createScene()
     camera->setPosition(glm::vec3(0.0, 0.60, 1.25));
     scene->addObject(camera);
 
-    // Add a cube in the scene of the scene.
+    // Create the static geometry
     {
-        auto cube = std::make_shared<SceneMeshObject> ();
-        cube->setMesh(GenericMeshBuilder()
+        auto staticGeometry = std::make_shared<SceneMeshObject> ();
+        staticGeometry->setMesh(GenericMeshBuilder()
+
+            // Add the walls
+            .addCubeInterior(glm::vec3(4.0, 4.0, 4.0))
+
+            // Add a cube
             .addCube(glm::vec3(0.5, 0.5, 0.5))
             .mesh()
         );
-        scene->addObject(cube);
-    }
-
-    // Add an interior cube
-    {
-        auto cubeInterior = std::make_shared<SceneMeshObject> ();
-        cubeInterior->setMesh(GenericMeshBuilder()
-            .addCubeInterior(glm::vec3(4.0, 4.0, 4.0))
-            .mesh()
-        );
-        scene->addObject(cubeInterior);
+        scene->addObject(staticGeometry);
     }
 }
 

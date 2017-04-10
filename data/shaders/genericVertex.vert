@@ -36,7 +36,7 @@ void main()
     fNormal = (normalViewMatrix * (normalModelMatrix * vec4(vNormal, 0.0))).xyz;
 
     fPosition = viewPosition.xyz;
-    fColor = vec4(vNormal*0.5 + 0.5, 1.0);//vColor;
+    fColor = vColor;
     fTexcoord = vTexcoord;
     gl_Position = projectionMatrix * viewPosition;
 }
